@@ -17,8 +17,8 @@ from funasr import AutoModel
 try:
     # Try to connect internet
     model = AutoModel(
-        model="iic/SenseVoiceSmall",
-        vad_model="iic/speech_fsmn_vad_zh-cn-16k-common-pytorch",
+        model=r"E:\huggingface_cache\hub\models--FunAudioLLM--SenseVoiceSmall\snapshots\3847d57b6bdf2dd8875cb1508d2af43d80a16bf7",
+        vad_model=r"C:\Users\wang\.cache\modelscope\models\iic--speech_fsmn_vad_zh-cn-16k-common-pytorch\snapshots\master",
         vad_kwargs={"max_single_segment_time": 30000},
         trust_remote_code=True,
     )
@@ -218,14 +218,14 @@ audio_examples = [
 
 html_content = """
 <div>
-    <h2 style="font-size: 22px;margin-left: 0px;">Voice Understanding Model: SenseVoice-Small</h2>
-    <p style="font-size: 18px;margin-left: 20px;">SenseVoice-Small is an encoder-only speech foundation model designed for rapid voice understanding. It encompasses a variety of features including automatic speech recognition (ASR), spoken language identification (LID), speech emotion recognition (SER), and acoustic event detection (AED). SenseVoice-Small supports multilingual recognition for Chinese, English, Cantonese, Japanese, and Korean. Additionally, it offers exceptionally low inference latency, performing 7 times faster than Whisper-small and 17 times faster than Whisper-large.</p>
-    <h2 style="font-size: 22px;margin-left: 0px;">Usage</h2> <p style="font-size: 18px;margin-left: 20px;">Upload an audio file or input through a microphone, then select the task and language. the audio is transcribed into corresponding text along with associated emotions (😊 happy, 😡 angry/exicting, 😔 sad) and types of sound events (😀 laughter, 🎼 music, 👏 applause, 🤧 cough&sneeze, 😭 cry). The event labels are placed in the front of the text and the emotion are in the back of the text.</p>
-	<p style="font-size: 18px;margin-left: 20px;">Recommended audio input duration is below 30 seconds. For audio longer than 30 seconds, local deployment is recommended.</p>
-	<h2 style="font-size: 22px;margin-left: 0px;">Repo</h2>
-	<p style="font-size: 18px;margin-left: 20px;"><a href="https://github.com/QwenAudio/SenseVoice" target="_blank">SenseVoice</a>: multilingual speech understanding model</p>
-	<p style="font-size: 18px;margin-left: 20px;"><a href="https://github.com/modelscope/FunASR" target="_blank">FunASR</a>: fundamental speech recognition toolkit</p>
-	<p style="font-size: 18px;margin-left: 20px;"><a href="https://github.com/QwenAudio/CosyVoice" target="_blank">CosyVoice</a>: high-quality multilingual TTS model</p>
+    <h2 style="font-size: 22px;margin-left: 0px;">语音理解模型：SenseVoice-Small</h2>
+    <p style="font-size: 18px;margin-left: 20px;">SenseVoice-Small 是一个仅编码器的语音基础模型，专为快速语音理解而设计。它涵盖多种能力，包括语音识别（ASR）、语种识别（LID）、语音情感识别（SER）和声学事件检测（AED）。支持中文、英文、粤语、日语和韩语的多语言识别。此外，它还提供极低的推理延迟，比 Whisper-small 快 7 倍，比 Whisper-large 快 17 倍。</p>
+    <h2 style="font-size: 22px;margin-left: 0px;">使用说明</h2> <p style="font-size: 18px;margin-left: 20px;">上传音频文件或通过麦克风输入，然后选择语言。音频会被转写为对应的文本，并附带情感（😊 开心、😡 生气/激动、😔 难过）和声音事件类型（😀 笑声、🎼 音乐、👏 掌声、🤧 咳嗽/喷嚏、😭 哭声）。事件标签显示在文本前面，情感标签显示在文本后面。</p>
+	<p style="font-size: 18px;margin-left: 20px;">建议音频输入时长在 30 秒以内。超过 30 秒的音频，建议使用本地部署。</p>
+	<h2 style="font-size: 22px;margin-left: 0px;">相关仓库</h2>
+	<p style="font-size: 18px;margin-left: 20px;"><a href="https://github.com/QwenAudio/SenseVoice" target="_blank">SenseVoice</a>：多语言语音理解模型</p>
+	<p style="font-size: 18px;margin-left: 20px;"><a href="https://github.com/modelscope/FunASR" target="_blank">FunASR</a>：基础语音识别工具包</p>
+	<p style="font-size: 18px;margin-left: 20px;"><a href="https://github.com/QwenAudio/CosyVoice" target="_blank">CosyVoice</a>：高质量多语言语音合成模型</p>
 </div>
 """
 
@@ -236,19 +236,19 @@ def launch():
 		gr.HTML(html_content)
 		with gr.Row():
 			with gr.Column():
-				audio_inputs = gr.Audio(label="Upload audio or use the microphone")
+				audio_inputs = gr.Audio(label="上传音频或使用麦克风录入")
 				
-				with gr.Accordion("Configuration"):
+				with gr.Accordion("配置"):
 					language_inputs = gr.Dropdown(choices=["auto", "zh", "en", "yue", "ja", "ko", "nospeech"],
 												  value="auto",
-												  label="Language")
-				fn_button = gr.Button("Start", variant="primary")
-				text_outputs = gr.Textbox(label="Results")
+												  label="语言")
+				fn_button = gr.Button("开始识别", variant="primary")
+				text_outputs = gr.Textbox(label="识别结果")
 			gr.Examples(examples=audio_examples, inputs=[audio_inputs, language_inputs], examples_per_page=20)
 		
 		fn_button.click(model_inference, inputs=[audio_inputs, language_inputs], outputs=text_outputs)
 
-	demo.launch()
+	demo.launch(server_port=int(os.getenv("SENSEVOICE_WEBUI_PORT", "47824")))
 
 
 if __name__ == "__main__":

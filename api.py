@@ -1,13 +1,16 @@
 # Set the device with environment, default is cuda:0
 # export SENSEVOICE_DEVICE=cuda:1
 
+import os
 import re
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import HTMLResponse
 from typing_extensions import Annotated
 from typing import List
 from enum import Enum
+import torch
 import torchaudio
+import soundfile as sf
 from model import SenseVoiceSmall
 from funasr.utils.postprocess_utils import rich_transcription_postprocess
 from io import BytesIO
@@ -26,7 +29,7 @@ class Language(str, Enum):
     nospeech = "nospeech"
 
 
-model_dir = "iic/SenseVoiceSmall"
+model_dir = r"E:\huggingface_cache\hub\models--FunAudioLLM--SenseVoiceSmall\snapshots\3847d57b6bdf2dd8875cb1508d2af43d80a16bf7"
 m, kwargs = SenseVoiceSmall.from_pretrained(
     model=model_dir, device=resolve_sensevoice_device()
 )
@@ -61,25 +64,43 @@ async def turn_audio_to_text(
     use_itn: Annotated[bool, Form(description="apply inverse text normalization")] = False,
 ):
     audios = []
+    errors = {}
+    file_keys = []  # 与 audios 逐一对应的文件名
     for file in files:
-        file_io = BytesIO(await file.read())
-        data_or_path_or_list, audio_fs = torchaudio.load(file_io)
+        try:
+            file_io = BytesIO(await file.read())
+            data_or_path_or_list, audio_fs = sf.read(file_io, dtype='float32')
 
-        # transform to target sample
-        if audio_fs != TARGET_FS:
-            resampler = torchaudio.transforms.Resample(orig_freq=audio_fs, new_freq=TARGET_FS)
-            data_or_path_or_list = resampler(data_or_path_or_list)
+            # transform to target sample
+            if len(data_or_path_or_list.shape) > 1:
+                data_or_path_or_list = data_or_path_or_list.mean(-1)
+            if audio_fs != TARGET_FS:
+                resampler = torchaudio.transforms.Resample(orig_freq=audio_fs, new_freq=TARGET_FS)
+                data_or_path_or_list = resampler(torch.from_numpy(data_or_path_or_list)[None, :])[0]
 
-        data_or_path_or_list = data_or_path_or_list.mean(0)
-        audios.append(data_or_path_or_list)
+            # 直接推理（无 VAD）单段音频限制在 30 秒以内
+            dur = data_or_path_or_list.shape[0] / TARGET_FS
+            if dur > 30:
+                errors[file.filename] = f"音频时长 {dur:.1f}s，超过 30 秒限制（直接推理模式），请使用 Web UI 长音频或分段上传"
+                continue
+
+            audios.append(data_or_path_or_list)
+            file_keys.append(file.filename)
+        except Exception as e:
+            errors[file.filename] = f"音频读取失败: {type(e).__name__}: {e}"
+
+    if not audios:
+        return {"result": [], "errors": errors}
 
     if lang == "":
         lang = "auto"
 
+    # key 必须与成功加载的 audios 一一对齐（剔除失败/超长的文件）
     if not keys:
-        key = [f.filename for f in files]
+        key = file_keys
     else:
-        key = keys.split(",")
+        provided = keys.split(",")
+        key = [provided[i] if i < len(provided) else fk for i, fk in enumerate(file_keys)]
 
     res = m.inference(
         data_in=audios,
@@ -96,10 +117,10 @@ async def turn_audio_to_text(
         it["raw_text"] = it["text"]
         it["clean_text"] = re.sub(regex, "", it["text"], 0, re.MULTILINE)
         it["text"] = rich_transcription_postprocess(it["text"])
-    return {"result": res[0]}
+    return {"result": res[0], "errors": errors}
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=50000)
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("SENSEVOICE_API_PORT", "47825")))

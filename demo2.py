@@ -7,7 +7,7 @@ from model import SenseVoiceSmall
 from funasr.utils.postprocess_utils import rich_transcription_postprocess
 
 
-model_dir = "iic/SenseVoiceSmall"
+model_dir = r"E:\huggingface_cache\hub\models--FunAudioLLM--SenseVoiceSmall\snapshots\3847d57b6bdf2dd8875cb1508d2af43d80a16bf7"
 m, kwargs = SenseVoiceSmall.from_pretrained(model=model_dir, device="cuda:0")
 m.eval()
 
