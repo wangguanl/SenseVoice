@@ -211,7 +211,17 @@ for sent in res[0]["sentence_info"]:
     print(f"Speaker {sent['spk']}: [{sent['start']}ms - {sent['end']}ms] {text}")
 ```
 
-> Note: Requires installing FunASR from source: `pip install git+https://github.com/modelscope/FunASR.git`
+Use the current repository `model.py` with FunASR 1.4.15 or newer. A local source
+update is needed when using `remote_code="./model.py"`; upgrading the Python
+package alone does not update that file. This composition was tested on a
+fixed public sample, not validated for diarization accuracy.
+
+With `output_timestamp=True`, `timestamp` contains `[start_ms, end_ms]` pairs
+aligned one-to-one with `words`. Older copies of this repository returned
+`[token, start_seconds, end_seconds]` triples, which are incompatible with
+FunASR's VAD timestamp aggregation. Direct callers must now read the token or
+word from `words`, not from `timestamp[i][0]`. See [demo2.py](./demo2.py).
+Speaker labels are anonymous clusters, not recognized personal identities.
 
 If all inputs are short audios (<30s), and batch inference is needed to speed up inference efficiency, the VAD model can be removed, and `batch_size` can be set accordingly.
 ```python

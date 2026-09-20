@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - Dockerfile
+      - .dockerignore
       - docker-compose.yaml
       - requirements.txt
       - api.py
@@ -15,7 +16,10 @@ on:
       - CONTRIBUTING.md
       - .github/workflows/sensevoice-container.yml
       - tests/test_container_contract.py
+      - tests/test_docker_context.sh
       - tests/test_device_env.py
+      - tests/test_model_timestamps.py
+      - utils/ctc_alignment.py
   push:
     branches:
       - main
@@ -23,6 +27,7 @@ on:
       - "v*"
     paths:
       - Dockerfile
+      - .dockerignore
       - docker-compose.yaml
       - requirements.txt
       - api.py
@@ -34,7 +39,10 @@ on:
       - CONTRIBUTING.md
       - .github/workflows/sensevoice-container.yml
       - tests/test_container_contract.py
+      - tests/test_docker_context.sh
       - tests/test_device_env.py
+      - tests/test_model_timestamps.py
+      - utils/ctc_alignment.py
   workflow_dispatch:
 
 permissions:
@@ -50,15 +58,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Validate container contract
         run: python -m unittest tests.test_container_contract tests.test_device_env
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install CPU PyTorch for model contracts
+        run: python -m pip install torch==2.12.1 --index-url https://download.pytorch.org/whl/cpu
+      - name: Validate module and timestamp contracts
+        run: python -m unittest tests.test_model_timestamps -v
 
   build:
     needs: contract
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: docker/setup-buildx-action@v3
+
+      - name: Verify Docker build context exclusions
+        run: bash tests/test_docker_context.sh
 
       - name: Log in to GitHub Container Registry
         if: github.event_name != 'pull_request'

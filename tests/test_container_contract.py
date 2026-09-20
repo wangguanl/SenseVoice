@@ -6,6 +6,26 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ContainerContractTest(unittest.TestCase):
+    def test_build_context_excludes_local_credentials_and_git_metadata(self):
+        ignore = ROOT / '.dockerignore'
+        self.assertTrue(ignore.is_file(), 'COPY . requires an explicit context boundary')
+        patterns = {line.strip() for line in ignore.read_text().splitlines()
+                    if line.strip() and not line.lstrip().startswith('#')}
+        required = {'.git', '**/.git', '.env', '**/.env', '.env.*', '**/.env.*',
+                    '.ssh', '**/.ssh', '.aws', '**/.aws', '.netrc', '**/.netrc',
+                    '.pypirc', '**/.pypirc', '**/github_token', '**/hf_token',
+                    '.mcp-tasks', '**/.mcp-tasks'}
+        self.assertTrue(required <= patterns, required - patterns)
+        self.assertFalse(any(pattern.startswith('!') for pattern in patterns))
+
+    def test_context_changes_run_ci_without_persisting_checkout_credentials(self):
+        workflow = (ROOT / '.github/workflows/sensevoice-container.yml').read_text()
+        self.assertEqual(workflow.count('- .dockerignore'), 2)
+        self.assertEqual(workflow.count('persist-credentials: false'),
+                         workflow.count('uses: actions/checkout@v4'))
+        self.assertEqual(workflow.count('- tests/test_docker_context.sh'), 2)
+        self.assertIn('run: bash tests/test_docker_context.sh', workflow)
+
     def test_container_base_matches_repository_torch_floor(self):
         dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
 

@@ -116,6 +116,13 @@ SenseVoiceSmall 示例与 FunASR 组合说话人分离路径需要 `funasr>=1.3.
 
 支持常见格式音频输入。长录音必须先分段再送入编码器；下例使用 FSMN-VAD 完成分段。
 
+使用 `remote_code="./model.py"` 时，升级 FunASR 包不会同步更新本地的
+`model.py`，请同时更新仓库源码。当前时间戳格式为 `timestamp=[[开始毫秒, 结束毫秒], ...]`，
+与 `words` 一一对应；旧版的 `[词元, 开始秒, 结束秒]` 三元组不兼容 VAD 聚合。
+直接调用模型的代码也需改为从 `words` 读取文字，参见 [demo2.py](./demo2.py)。
+说话人组合示例见 [Speaker Diarization](./README.md#speaker-diarization)，已用
+FunASR 1.4.15 和固定公开样本验证流程；这不是说话人准确率或真实身份识别验证。
+
 ```python
 from funasr import AutoModel
 from funasr.utils.postprocess_utils import rich_transcription_postprocess
